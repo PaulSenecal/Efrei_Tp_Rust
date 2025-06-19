@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulation de Carte - Rust</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background-color: #1a1a1a;
+            color: #fff;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            text-align: center;
+            color: #ff7043;
+        }
+        
+        .controls {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .control-group {
+            display: inline-block;
+            margin-right: 20px;
+        }
+        
+        label {
+            display: inline-block;
+            width: 120px;
+        }
+        
+        input {
+            width: 100px;
+            padding: 5px;
+            background: #333;
+            color: #fff;
+            border: 1px solid #555;
+            border-radius: 4px;
+        }
+        
+        button {
+            background: #ff7043;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-left: 10px;
+        }
+        
+        button:hover {
+            background: #ff5722;
+        }
+        
+        #map-container {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            overflow: auto;
+        }
+        
+        #map {
+            display: grid;
+            gap: 1px;
+            background: #1a1a1a;
+            padding: 10px;
+            border-radius: 4px;
+            width: fit-content;
+            margin: 0 auto;
+        }
+        
+        .tile {
+            width: 12px;
+            height: 12px;
+            border: 1px solid #333;
+        }
+        
+        .tile-empty {
+            background: #404040;
+        }
+        
+        .tile-obstacle {
+            background: #666;
+        }
+        
+        .tile-energy {
+            background: #ffeb3b;
+            position: relative;
+        }
+        
+        .tile-mineral {
+            background: #2196f3;
+            position: relative;
+        }
+        
+        .tile-science {
+            background: #4caf50;
+            position: relative;
+        }
+        
+        .legend {
+            margin-top: 20px;
+            background: #2a2a2a;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        
+        .legend-item {
+            display: inline-block;
+            margin-right: 20px;
+        }
+        
+        .legend-color {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            vertical-align: middle;
+            margin-right: 5px;
+            border: 1px solid #555;
+        }
+        
+        #info {
+            margin-top: 20px;
+            padding: 15px;
+            background: #2a2a2a;
+            border-radius: 8px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🗺️ Simulation de Carte Procédurale</h1>
+        
+        <div class="controls">
+            <div class="control-group">
+                <label for="seed">Seed:</label>
+                <input type="number" id="seed" value="42" min="0">
+            </div>
+            <div class="control-group">
+                <label for="width">Largeur:</label>
+                <input type="number" id="width" value="50" min="10" max="100">
+            </div>
+            <div class="control-group">
+                <label for="height">Hauteur:</label>
+                <input type="number" id="height" value="50" min="10" max="100">
+            </div>
+            <button onclick="generateMap()">Générer la carte</button>
+        </div>
+        
+        <div id="map-container">
+            <div id="map"></div>
+        </div>
+        
+        <div class="legend">
+            <div class="legend-item">
+                <span class="legend-color" style="background: #404040;"></span>
+                <span>Vide</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-color" style="background: #666;"></span>
+                <span>Obstacle</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-color" style="background: #ffeb3b;"></span>
+                <span>Énergie</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-color" style="background: #2196f3;"></span>
+                <span>Minerai</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-color" style="background: #4caf50;"></span>
+                <span>Point scientifique</span>
+            </div>
+        </div>
+        
+        <div id="info">
+            <p>Cliquez sur "Générer la carte" pour créer une nouvelle carte.</p>
+            <p>La seed garantit que la même carte sera générée à chaque fois.</p>
+        </div>
+    </div>
+    
+    <script>
+        async function generateMap() {
+            const seed = document.getElementById('seed').value;
+            const width = document.getElementById('width').value;
+            const height = document.getElementById('height').value;
+            
+            const info = document.getElementById('info');
+            info.innerHTML = '<p>Génération de la carte en cours...</p>';
+            
+            try {
+                const response = await fetch(`/api/map?seed=${seed}&width=${width}&height=${height}`);
+                const data = await response.json();
+                
+                displayMap(data);
+                
+                // Compter les ressources
+                let energyCount = 0;
+                let mineralCount = 0;
+                let scienceCount = 0;
+                let obstacleCount = 0;
+                
+                data.tiles.forEach(row => {
+                    row.forEach(tile => {
+                        if (tile === 'Obstacle') obstacleCount++;
+                        else if (tile.Energy) energyCount++;
+                        else if (tile.Mineral) mineralCount++;
+                        else if (tile === 'SciencePoint') scienceCount++;
+                    });
+                });
+                
+                info.innerHTML = `
+                    <p><strong>Carte générée avec succès!</strong></p>
+                    <p>Seed: ${data.seed}</p>
+                    <p>Dimensions: ${data.width}x${data.height}</p>
+                    <p>Obstacles: ${obstacleCount}</p>
+                    <p>Points d'énergie: ${energyCount}</p>
+                    <p>Points de minerai: ${mineralCount}</p>
+                    <p>Points scientifiques: ${scienceCount}</p>
+                `;
+            } catch (error) {
+                info.innerHTML = `<p style="color: red;">Erreur: ${error.message}</p>`;
+            }
+        }
+        
+        function displayMap(mapData) {
+            const mapElement = document.getElementById('map');
+            mapElement.innerHTML = '';
+            mapElement.style.gridTemplateColumns = `repeat(${mapData.width}, 1fr)`;
+            
+            mapData.tiles.forEach((row, y) => {
+                row.forEach((tile, x) => {
+                    const tileElement = document.createElement('div');
+                    tileElement.className = 'tile';
+                    
+                    if (tile === 'Empty') {
+                        tileElement.classList.add('tile-empty');
+                    } else if (tile === 'Obstacle') {
+                        tileElement.classList.add('tile-obstacle');
+                    } else if (tile.Energy) {
+                        tileElement.classList.add('tile-energy');
+                        tileElement.title = `Énergie: ${tile.Energy[0]}`;
+                    } else if (tile.Mineral) {
+                        tileElement.classList.add('tile-mineral');
+                        tileElement.title = `Minerai: ${tile.Mineral[0]}`;
+                    } else if (tile === 'SciencePoint') {
+                        tileElement.classList.add('tile-science');
+                        tileElement.title = 'Point scientifique';
+                    }
+                    
+                    tileElement.dataset.x = x;
+                    tileElement.dataset.y = y;
+                    
+                    mapElement.appendChild(tileElement);
+                });
+            });
+        }
+        
+        // Générer la carte au chargement
+        window.onload = () => generateMap();
+    </script>
+</body>
+</html>

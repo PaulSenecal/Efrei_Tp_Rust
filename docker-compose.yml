@@ -1,4 +1,4 @@
-yamlversion: '3.8'
+version: '3.8'
 
 services:
   rust-map:
@@ -12,5 +12,5 @@ services:
     environment:
       - RUST_LOG=info
       - RUST_BACKTRACE=1
-    command: cargo watch -x run
+    command: cargo run
     tty: true

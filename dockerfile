@@ -1,5 +1,4 @@
-# Utilise l'image officielle Rust
-FROM rust:1.75
+FROM rust:1.82
 
 # Installe les dépendances système
 RUN apt-get update && apt-get install -y \
@@ -22,12 +21,11 @@ RUN mkdir src && \
 # Copie le code source
 COPY . .
 
-# Compile l'application
+# Compile 
 RUN touch src/main.rs && \
     cargo build --release
 
-# Expose le port 8080
 EXPOSE 8080
 
-# Lance l'application
+# lancement de app!!!
 CMD ["cargo", "run", "--release"]
