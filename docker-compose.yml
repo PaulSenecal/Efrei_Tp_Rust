@@ -1,0 +1,16 @@
+yamlversion: '3.8'
+
+services:
+  rust-map:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./src:/app/src
+      - ./static:/app/static
+      - ./Cargo.toml:/app/Cargo.toml
+    environment:
+      - RUST_LOG=info
+      - RUST_BACKTRACE=1
+    command: cargo watch -x run
+    tty: true
