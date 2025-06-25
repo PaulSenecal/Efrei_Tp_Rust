@@ -45,7 +45,12 @@ impl RobotManager {
             known_resources: Arc::new(Mutex::new(Vec::new())),
             simulation_tick: 0,
         }
+        
     }
+      pub fn get_base_position(&self) -> Position {
+        self.base_position
+    }
+    
     
     /// Ajoute un robot exploreur
     pub fn add_explorer(&mut self, x: usize, y: usize) -> u32 {

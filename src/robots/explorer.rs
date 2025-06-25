@@ -2,7 +2,7 @@ use serde::{Serialize, Deserialize};
 use crate::map::{Map, Tile, ResourceType};
 use super::{Robot, RobotType, RobotStatus, Position, RobotConfig, RobotMemory, Direction};
 use std::collections::{HashSet, VecDeque};
-use rand::Rng;
+
 
 /// Robot exploreur autonome - découvre la carte et marque les ressources
 #[derive(Debug, Serialize, Deserialize)]

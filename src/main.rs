@@ -79,11 +79,28 @@ async fn generate_map(
         science_density: 0.02,
     };
     
-    let new_map = Map::new(config);
+    let mut new_map = Map::new(config);
     
     // Placer la base au centre de la carte
     let base_x = new_map.width / 2;
     let base_y = new_map.height / 2;
+    
+    // S'ASSURER que la base n'est pas sur un obstacle
+    // Nettoyer une zone 3x3 autour de la base
+    for dx in -1..=1 {
+        for dy in -1..=1 {
+            let x = (base_x as i32 + dx).max(0).min(new_map.width as i32 - 1) as usize;
+            let y = (base_y as i32 + dy).max(0).min(new_map.height as i32 - 1) as usize;
+            
+            if let Some(row) = new_map.tiles.get_mut(y) {
+                if let Some(tile) = row.get_mut(x) {
+                    if *tile == map::Tile::Obstacle {
+                        *tile = map::Tile::Empty;
+                    }
+                }
+            }
+        }
+    }
     
     let mut sim_state = state.lock().unwrap();
     sim_state.map = new_map.clone();
@@ -92,12 +109,7 @@ async fn generate_map(
     HttpResponse::Ok().json(ApiResponse::success(&new_map))
 }
 
-/// Obtient l'état actuel de la carte
-async fn get_map(state: web::Data<Mutex<SimulationState>>) -> HttpResponse {
-    let sim_state = state.lock().unwrap();
-    HttpResponse::Ok().json(ApiResponse::success(&sim_state.map))
-}
-
+/// Crée un nouveau robot
 /// Crée un nouveau robot
 async fn create_robot(
     body: web::Json<CreateRobotRequest>,
@@ -105,25 +117,58 @@ async fn create_robot(
 ) -> HttpResponse {
     let mut sim_state = state.lock().unwrap();
     
-    // Vérifier que la position est valide
-    if body.x >= sim_state.map.width || body.y >= sim_state.map.height {
-        return HttpResponse::BadRequest().json(ApiResponse::<()>::error(
-            "Position hors limites".to_string()
-        ));
-    }
+    // Fonction helper pour trouver une position libre près de la base
+    let find_spawn_position = |map: &Map, base_x: usize, base_y: usize| -> Option<(usize, usize)> {
+        // Essayer d'abord la position exacte de la base
+        if let Some(tile) = map.get_tile(base_x, base_y) {
+            if tile != &map::Tile::Obstacle {
+                return Some((base_x, base_y));
+            }
+        }
+        
+        // Chercher en spirale autour de la base
+        for radius in 1..=5 {
+            for dx in -(radius as i32)..=(radius as i32) {
+                for dy in -(radius as i32)..=(radius as i32) {
+                    // Vérifier seulement le périmètre du rayon actuel
+                    if dx.abs() != radius && dy.abs() != radius {
+                        continue;
+                    }
+                    
+                    let x = (base_x as i32 + dx).max(0) as usize;
+                    let y = (base_y as i32 + dy).max(0) as usize;
+                    
+                    if x < map.width && y < map.height {
+                        if let Some(tile) = map.get_tile(x, y) {
+                            if tile != &map::Tile::Obstacle {
+                                return Some((x, y));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        None // Aucune position libre trouvée
+    };
     
-    // Vérifier qu'il n'y a pas d'obstacle
-    if let Some(map::Tile::Obstacle) = sim_state.map.get_tile(body.x, body.y) {
-        return HttpResponse::BadRequest().json(ApiResponse::<()>::error(
-            "Position bloquée par un obstacle".to_string()
-        ));
-    }
+    // Trouver une position libre près de la base
+    let base_pos = sim_state.robots.get_base_position(); // Récupérer la position de la base
+    let (spawn_x, spawn_y) = match find_spawn_position(&sim_state.map, base_pos.x, base_pos.y) {
+        Some(pos) => pos,
+        None => {
+            return HttpResponse::BadRequest().json(ApiResponse::<()>::error(
+                "Aucune position libre trouvée près de la base".to_string()
+            ));
+        }
+    };
     
+    // Créer le robot à la position trouvée
     let robot_id = match body.robot_type.to_lowercase().as_str() {
-        "explorer" => sim_state.robots.add_explorer(body.x, body.y),
-        "energy_harvester" => sim_state.robots.add_energy_harvester(body.x, body.y),
-        "mineral_harvester" => sim_state.robots.add_mineral_harvester(body.x, body.y),
-        "scientist" => sim_state.robots.add_scientist(body.x, body.y),
+        "explorer" => sim_state.robots.add_explorer(spawn_x, spawn_y),
+        "energy_harvester" => sim_state.robots.add_energy_harvester(spawn_x, spawn_y),
+        "mineral_harvester" => sim_state.robots.add_mineral_harvester(spawn_x, spawn_y),
+        "scientist" => sim_state.robots.add_scientist(spawn_x, spawn_y),
         _ => {
             return HttpResponse::BadRequest().json(ApiResponse::<()>::error(
                 "Type de robot invalide. Types disponibles: explorer, energy_harvester, mineral_harvester, scientist".to_string()
@@ -211,7 +256,10 @@ async fn index() -> HttpResponse {
         .content_type("text/html")
         .body(include_str!("static/index.html"))
 }
-
+async fn get_map(state: web::Data<Mutex<SimulationState>>) -> HttpResponse {
+    let sim_state = state.lock().unwrap();
+    HttpResponse::Ok().json(ApiResponse::success(&sim_state.map))
+}
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
