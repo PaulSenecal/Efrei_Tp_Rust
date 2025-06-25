@@ -2,7 +2,7 @@ mod generator;
 mod resources;
 
 pub use generator::MapGenerator;
-pub use resources::{Resource, ResourceType};
+pub use resources::ResourceType;
 
 use serde::{Serialize, Deserialize};
 
@@ -26,7 +26,7 @@ pub enum Tile {
     SciencePoint,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Map {
     pub width: usize,
     pub height: usize,

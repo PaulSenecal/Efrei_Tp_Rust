@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simulation de Carte - Rust</title>
+    <title>Simulation Autonome de Robots - Rust</title>
     <style>
         body {
             margin: 0;
@@ -14,7 +14,7 @@
         }
         
         .container {
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 0 auto;
         }
         
@@ -23,30 +23,57 @@
             color: #ff7043;
         }
         
-        .controls {
+        .main-layout {
+            display: flex;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .left-panel {
+            flex: 1;
+            max-width: 350px;
+        }
+        
+        .center-panel {
+            flex: 2;
+        }
+        
+        .right-panel {
+            flex: 1;
+            max-width: 350px;
+        }
+        
+        .panel {
             background: #2a2a2a;
             padding: 20px;
             border-radius: 8px;
             margin-bottom: 20px;
         }
         
+        h3 {
+            margin-top: 0;
+            color: #ff7043;
+        }
+        
         .control-group {
-            display: inline-block;
-            margin-right: 20px;
+            margin-bottom: 15px;
         }
         
         label {
-            display: inline-block;
-            width: 120px;
+            display: block;
+            margin-bottom: 5px;
+            color: #ff7043;
+            font-size: 14px;
         }
         
-        input {
-            width: 100px;
-            padding: 5px;
+        input, select {
+            width: 100%;
+            padding: 8px;
             background: #333;
             color: #fff;
             border: 1px solid #555;
             border-radius: 4px;
+            box-sizing: border-box;
         }
         
         button {
@@ -56,19 +83,35 @@
             padding: 10px 20px;
             border-radius: 4px;
             cursor: pointer;
-            font-size: 16px;
-            margin-left: 10px;
+            font-size: 14px;
+            width: 100%;
+            margin-bottom: 10px;
         }
         
         button:hover {
             background: #ff5722;
         }
         
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+        
+        .simulation-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .simulation-controls button {
+            flex: 1;
+        }
+        
         #map-container {
             background: #2a2a2a;
             padding: 20px;
             border-radius: 8px;
-            overflow: auto;
+            position: relative;
         }
         
         #map {
@@ -79,12 +122,14 @@
             border-radius: 4px;
             width: fit-content;
             margin: 0 auto;
+            position: relative;
         }
         
         .tile {
-            width: 12px;
-            height: 12px;
+            width: 10px;
+            height: 10px;
             border: 1px solid #333;
+            position: relative;
         }
         
         .tile-empty {
@@ -97,157 +142,450 @@
         
         .tile-energy {
             background: #ffeb3b;
-            position: relative;
         }
         
         .tile-mineral {
             background: #2196f3;
-            position: relative;
         }
         
         .tile-science {
             background: #4caf50;
-            position: relative;
         }
         
-        .legend {
-            margin-top: 20px;
-            background: #2a2a2a;
-            padding: 15px;
-            border-radius: 8px;
+        .tile-base {
+            background: #ff5722;
+            border: 2px solid #fff;
+        }
+        
+        .robot {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            z-index: 10;
+            transform: translate(1px, 1px);
+        }
+        
+        .robot-explorer {
+            background: #e91e63;
+            border: 1px solid #fff;
+        }
+        
+        .robot-energy {
+            background: #ffc107;
+            border: 1px solid #fff;
+        }
+        
+        .robot-mineral {
+            background: #03a9f4;
+            border: 1px solid #fff;
+        }
+        
+        .robot-scientist {
+            background: #8bc34a;
+            border: 1px solid #fff;
+        }
+        
+        .robot-low-energy {
+            animation: pulse 1s infinite;
+        }
+        
+        .robot-inactive {
+            opacity: 0.3;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
         }
         
         .legend-item {
-            display: inline-block;
-            margin-right: 20px;
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 13px;
         }
         
         .legend-color {
             display: inline-block;
-            width: 20px;
-            height: 20px;
-            vertical-align: middle;
-            margin-right: 5px;
+            width: 16px;
+            height: 16px;
+            margin-right: 8px;
             border: 1px solid #555;
         }
         
-        #info {
-            margin-top: 20px;
-            padding: 15px;
-            background: #2a2a2a;
-            border-radius: 8px;
+        .legend-robot {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        #robot-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .robot-item {
+            background: #333;
+            padding: 10px;
+            margin-bottom: 8px;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+        
+        .robot-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        
+        .robot-type {
+            font-weight: bold;
+        }
+        
+        .robot-status {
+            font-size: 11px;
+            color: #aaa;
+        }
+        
+        .energy-bar {
+            width: 100%;
+            height: 4px;
+            background: #333;
+            margin-top: 5px;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        
+        .energy-fill {
+            height: 100%;
+            background: #4caf50;
+            transition: width 0.3s;
+        }
+        
+        .energy-fill.low {
+            background: #ff9800;
+        }
+        
+        .energy-fill.critical {
+            background: #f44336;
+        }
+        
+        #action-log {
+            max-height: 300px;
+            overflow-y: auto;
             font-family: monospace;
+            font-size: 12px;
+        }
+        
+        .action-message {
+            margin-bottom: 3px;
+            padding: 3px 5px;
+            border-left: 2px solid #ff7043;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        
+        .stat-item {
+            background: #333;
+            padding: 10px;
+            border-radius: 4px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #ff7043;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #aaa;
+            margin-top: 5px;
+        }
+        
+        .simulation-speed {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        #speed-value {
+            font-weight: bold;
+            color: #ff7043;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🗺️ Simulation de Carte Procédurale</h1>
+        <h1>🤖 Simulation Autonome de Robots</h1>
         
-        <div class="controls">
-            <div class="control-group">
-                <label for="seed">Seed:</label>
-                <input type="number" id="seed" value="42" min="0">
+        <div class="main-layout">
+            <!-- Panneau de gauche - Contrôles -->
+            <div class="left-panel">
+                <div class="panel">
+                    <h3>🗺️ Configuration</h3>
+                    <div class="control-group">
+                        <label for="seed">Seed:</label>
+                        <input type="number" id="seed" value="42" min="0">
+                    </div>
+                    <div class="control-group">
+                        <label for="width">Largeur:</label>
+                        <input type="number" id="width" value="50" min="20" max="80">
+                    </div>
+                    <div class="control-group">
+                        <label for="height">Hauteur:</label>
+                        <input type="number" id="height" value="50" min="20" max="80">
+                    </div>
+                    <button onclick="generateMap()">Nouvelle carte</button>
+                </div>
+                
+                <div class="panel">
+                    <h3>🤖 Créer des robots</h3>
+                    <div class="control-group">
+                        <button onclick="createRobotAtBase('explorer')">+ Exploreur</button>
+                        <button onclick="createRobotAtBase('energy_harvester')">+ Récolteur Énergie</button>
+                        <button onclick="createRobotAtBase('mineral_harvester')">+ Récolteur Minerai</button>
+                        <button onclick="createRobotAtBase('scientist')">+ Scientifique</button>
+                    </div>
+                </div>
+                
+                <div class="panel">
+                    <h3>⚙️ Simulation</h3>
+                    <div class="simulation-controls">
+                        <button id="play-btn" onclick="toggleSimulation()">▶️ Démarrer</button>
+                        <button onclick="simulateTick(1)">⏭️ 1 Tick</button>
+                        <button onclick="simulateTick(10)">⏩ 10 Ticks</button>
+                    </div>
+                    <div class="simulation-speed">
+                        <label for="sim-speed">Vitesse:</label>
+                        <input type="range" id="sim-speed" min="100" max="2000" value="1000" step="100">
+                        <span id="speed-value">1s</span>
+                    </div>
+                </div>
+                
+                <div class="panel">
+                    <h3>📊 Statistiques</h3>
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <div class="stat-value" id="stat-robots">0</div>
+                            <div class="stat-label">Robots actifs</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="stat-tick">0</div>
+                            <div class="stat-label">Tick</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="stat-energy">0</div>
+                            <div class="stat-label">Énergie</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="stat-minerals">0</div>
+                            <div class="stat-label">Minerais</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="stat-science">0</div>
+                            <div class="stat-label">Science</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="stat-explored">0%</div>
+                            <div class="stat-label">Exploré</div>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="control-group">
-                <label for="width">Largeur:</label>
-                <input type="number" id="width" value="50" min="10" max="100">
+            
+            <!-- Panneau central - Carte -->
+            <div class="center-panel">
+                <div id="map-container">
+                    <div id="map"></div>
+                </div>
+                
+                <div class="panel">
+                    <h3>📜 Journal d'actions</h3>
+                    <div id="action-log">
+                        <div class="action-message">En attente du démarrage de la simulation...</div>
+                    </div>
+                </div>
             </div>
-            <div class="control-group">
-                <label for="height">Hauteur:</label>
-                <input type="number" id="height" value="50" min="10" max="100">
+            
+            <!-- Panneau de droite - Liste des robots -->
+            <div class="right-panel">
+                <div class="panel">
+                    <h3>🤖 Robots actifs</h3>
+                    <div id="robot-list">
+                        <p style="color: #666; text-align: center;">Aucun robot créé</p>
+                    </div>
+                </div>
+                
+                <div class="panel">
+                    <h3>🎨 Légende</h3>
+                    <div class="legend-item">
+                        <span class="legend-color" style="background: #ff5722; border: 2px solid #fff;"></span>
+                        <span>Base</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-color" style="background: #404040;"></span>
+                        <span>Terrain vide</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-color" style="background: #666;"></span>
+                        <span>Obstacle</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-color" style="background: #ffeb3b;"></span>
+                        <span>Énergie</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-color" style="background: #2196f3;"></span>
+                        <span>Minerai</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-color" style="background: #4caf50;"></span>
+                        <span>Point scientifique</span>
+                    </div>
+                    <hr style="border-color: #444;">
+                    <div class="legend-item">
+                        <span class="legend-robot robot-explorer"></span>
+                        <span>Exploreur</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-robot robot-energy"></span>
+                        <span>Récolteur énergie</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-robot robot-mineral"></span>
+                        <span>Récolteur minerai</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-robot robot-scientist"></span>
+                        <span>Scientifique</span>
+                    </div>
+                </div>
             </div>
-            <button onclick="generateMap()">Générer la carte</button>
-        </div>
-        
-        <div id="map-container">
-            <div id="map"></div>
-        </div>
-        
-        <div class="legend">
-            <div class="legend-item">
-                <span class="legend-color" style="background: #404040;"></span>
-                <span>Vide</span>
-            </div>
-            <div class="legend-item">
-                <span class="legend-color" style="background: #666;"></span>
-                <span>Obstacle</span>
-            </div>
-            <div class="legend-item">
-                <span class="legend-color" style="background: #ffeb3b;"></span>
-                <span>Énergie</span>
-            </div>
-            <div class="legend-item">
-                <span class="legend-color" style="background: #2196f3;"></span>
-                <span>Minerai</span>
-            </div>
-            <div class="legend-item">
-                <span class="legend-color" style="background: #4caf50;"></span>
-                <span>Point scientifique</span>
-            </div>
-        </div>
-        
-        <div id="info">
-            <p>Cliquez sur "Générer la carte" pour créer une nouvelle carte.</p>
-            <p>La seed garantit que la même carte sera générée à chaque fois.</p>
         </div>
     </div>
     
     <script>
+        let currentMap = null;
+        let robots = [];
+        let basePosition = { x: 25, y: 25 };
+        let simulationInterval = null;
+        let isSimulationRunning = false;
+        
+        // Configuration de la vitesse
+        const speedSlider = document.getElementById('sim-speed');
+        const speedValue = document.getElementById('speed-value');
+        speedSlider.addEventListener('input', (e) => {
+            const speed = e.target.value;
+            speedValue.textContent = (speed / 1000).toFixed(1) + 's';
+            if (isSimulationRunning) {
+                stopSimulation();
+                startSimulation();
+            }
+        });
+        
+        async function apiCall(url, method = 'GET', body = null) {
+            try {
+                const options = {
+                    method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                };
+                
+                if (body) {
+                    options.body = JSON.stringify(body);
+                }
+                
+                const response = await fetch(url, options);
+                const data = await response.json();
+                
+                if (!data.success) {
+                    throw new Error(data.error || 'Erreur inconnue');
+                }
+                
+                return data.data;
+            } catch (error) {
+                addActionMessage(`Erreur: ${error.message}`);
+                throw error;
+            }
+        }
+        
+        function addActionMessage(message) {
+            const log = document.getElementById('action-log');
+            const messageEl = document.createElement('div');
+            messageEl.className = 'action-message';
+            messageEl.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            log.appendChild(messageEl);
+            log.scrollTop = log.scrollHeight;
+            
+            // Limiter le nombre de messages
+            while (log.children.length > 100) {
+                log.removeChild(log.firstChild);
+            }
+        }
+        
         async function generateMap() {
+            stopSimulation();
+            
             const seed = document.getElementById('seed').value;
             const width = document.getElementById('width').value;
             const height = document.getElementById('height').value;
             
-            const info = document.getElementById('info');
-            info.innerHTML = '<p>Génération de la carte en cours...</p>';
+            addActionMessage('Génération d\'une nouvelle carte...');
             
             try {
-                const response = await fetch(`/api/map?seed=${seed}&width=${width}&height=${height}`);
-                const data = await response.json();
-                
-                displayMap(data);
-                
-                // Compter les ressources
-                let energyCount = 0;
-                let mineralCount = 0;
-                let scienceCount = 0;
-                let obstacleCount = 0;
-                
-                data.tiles.forEach(row => {
-                    row.forEach(tile => {
-                        if (tile === 'Obstacle') obstacleCount++;
-                        else if (tile.Energy) energyCount++;
-                        else if (tile.Mineral) mineralCount++;
-                        else if (tile === 'SciencePoint') scienceCount++;
-                    });
-                });
-                
-                info.innerHTML = `
-                    <p><strong>Carte générée avec succès!</strong></p>
-                    <p>Seed: ${data.seed}</p>
-                    <p>Dimensions: ${data.width}x${data.height}</p>
-                    <p>Obstacles: ${obstacleCount}</p>
-                    <p>Points d'énergie: ${energyCount}</p>
-                    <p>Points de minerai: ${mineralCount}</p>
-                    <p>Points scientifiques: ${scienceCount}</p>
-                `;
+                currentMap = await apiCall(`/api/map/generate?seed=${seed}&width=${width}&height=${height}`, 'POST');
+                basePosition = { x: Math.floor(width / 2), y: Math.floor(height / 2) };
+                displayMap();
+                robots = [];
+                updateRobotList();
+                updateStats({ tick: 0, active_robots: 0, total_energy_collected: 0, total_minerals_collected: 0, science_points_visited: 0, explored_tiles: 0 });
+                addActionMessage(`Carte générée! Base placée en (${basePosition.x}, ${basePosition.y})`);
             } catch (error) {
-                info.innerHTML = `<p style="color: red;">Erreur: ${error.message}</p>`;
+                console.error('Erreur:', error);
             }
         }
         
-        function displayMap(mapData) {
+        async function loadMap() {
+            try {
+                currentMap = await apiCall('/api/map');
+                basePosition = { x: Math.floor(currentMap.width / 2), y: Math.floor(currentMap.height / 2) };
+                displayMap();
+                await refreshRobots();
+            } catch (error) {
+                console.error('Erreur:', error);
+            }
+        }
+        
+        function displayMap() {
+            if (!currentMap) return;
+            
             const mapElement = document.getElementById('map');
             mapElement.innerHTML = '';
-            mapElement.style.gridTemplateColumns = `repeat(${mapData.width}, 1fr)`;
+            mapElement.style.gridTemplateColumns = `repeat(${currentMap.width}, 1fr)`;
             
-            mapData.tiles.forEach((row, y) => {
+            currentMap.tiles.forEach((row, y) => {
                 row.forEach((tile, x) => {
                     const tileElement = document.createElement('div');
                     tileElement.className = 'tile';
+                    tileElement.dataset.x = x;
+                    tileElement.dataset.y = y;
                     
-                    if (tile === 'Empty') {
+                    // Marquer la base
+                    if (x === basePosition.x && y === basePosition.y) {
+                        tileElement.classList.add('tile-base');
+                    } else if (tile === 'Empty') {
                         tileElement.classList.add('tile-empty');
                     } else if (tile === 'Obstacle') {
                         tileElement.classList.add('tile-obstacle');
@@ -262,16 +600,213 @@
                         tileElement.title = 'Point scientifique';
                     }
                     
-                    tileElement.dataset.x = x;
-                    tileElement.dataset.y = y;
-                    
                     mapElement.appendChild(tileElement);
                 });
             });
+            
+            updateRobotPositions();
         }
         
-        // Générer la carte au chargement
-        window.onload = () => generateMap();
+        async function createRobotAtBase(type) {
+            try {
+                const robot = await apiCall('/api/robots', 'POST', {
+                    robot_type: type,
+                    x: basePosition.x,
+                    y: basePosition.y
+                });
+                
+                robots.push(robot);
+                updateRobotList();
+                updateRobotPositions();
+                
+                const typeName = {
+                    'explorer': 'Exploreur',
+                    'energy_harvester': 'Récolteur énergie',
+                    'mineral_harvester': 'Récolteur minerai',
+                    'scientist': 'Scientifique'
+                }[type];
+                
+                addActionMessage(`${typeName} #${robot.id} créé à la base`);
+            } catch (error) {
+                console.error('Erreur:', error);
+            }
+        }
+        
+        async function simulateTick(ticks = 1) {
+            try {
+                const result = await apiCall('/api/simulation/tick', 'POST', { ticks });
+                
+                // Mettre à jour les robots
+                robots = result.robots;
+                updateRobotList();
+                updateRobotPositions();
+                
+                // Mettre à jour les stats
+                updateStats(result.stats);
+                
+                // Afficher les actions
+                result.actions.forEach(action => addActionMessage(action));
+                
+                // Recharger la carte pour voir les changements
+                currentMap = await apiCall('/api/map');
+                displayMap();
+            } catch (error) {
+                console.error('Erreur:', error);
+            }
+        }
+        
+        function toggleSimulation() {
+            if (isSimulationRunning) {
+                stopSimulation();
+            } else {
+                startSimulation();
+            }
+        }
+        
+        function startSimulation() {
+            isSimulationRunning = true;
+            document.getElementById('play-btn').textContent = '⏸️ Pause';
+            const speed = parseInt(speedSlider.value);
+            
+            simulationInterval = setInterval(() => {
+                simulateTick(1);
+            }, speed);
+            
+            addActionMessage('Simulation démarrée');
+        }
+        
+        function stopSimulation() {
+            isSimulationRunning = false;
+            document.getElementById('play-btn').textContent = '▶️ Démarrer';
+            
+            if (simulationInterval) {
+                clearInterval(simulationInterval);
+                simulationInterval = null;
+            }
+            
+            addActionMessage('Simulation en pause');
+        }
+        
+        async function refreshRobots() {
+            try {
+                robots = await apiCall('/api/robots');
+                updateRobotList();
+                updateRobotPositions();
+                
+                const stats = await apiCall('/api/simulation/stats');
+                updateStats(stats);
+            } catch (error) {
+                console.error('Erreur:', error);
+            }
+        }
+        
+        function updateStats(stats) {
+            document.getElementById('stat-robots').textContent = `${stats.active_robots}/${stats.total_robots}`;
+            document.getElementById('stat-tick').textContent = stats.tick;
+            document.getElementById('stat-energy').textContent = stats.total_energy_collected;
+            document.getElementById('stat-minerals').textContent = stats.total_minerals_collected;
+            document.getElementById('stat-science').textContent = stats.science_points_visited;
+            
+            const mapSize = currentMap ? currentMap.width * currentMap.height : 1;
+            const exploredPercent = ((stats.explored_tiles / mapSize) * 100).toFixed(1);
+            document.getElementById('stat-explored').textContent = `${exploredPercent}%`;
+        }
+        
+        function updateRobotList() {
+            const listElement = document.getElementById('robot-list');
+            
+            if (robots.length === 0) {
+                listElement.innerHTML = '<p style="color: #666; text-align: center;">Aucun robot créé</p>';
+                return;
+            }
+            
+            listElement.innerHTML = '';
+            
+            robots.forEach(robot => {
+                const robotEl = document.createElement('div');
+                robotEl.className = 'robot-item';
+                
+                const energyPercent = (robot.energy / 100) * 100;
+                let energyClass = '';
+                if (energyPercent <= 20) energyClass = 'critical';
+                else if (energyPercent <= 50) energyClass = 'low';
+                
+                const typeDisplay = {
+                    'Explorer': '🔍 Exploreur',
+                    'EnergyHarvester': '⚡ Énergie',
+                    'MineralHarvester': '💎 Minerai',
+                    'ScientistRobot': '🔬 Science'
+                }[robot.robot_type] || robot.robot_type;
+                
+                const statusDisplay = {
+                    'Idle': '💤 Inactif',
+                    'Exploring': '🔍 Exploration',
+                    'MovingToTarget': '🚶 Déplacement',
+                    'Harvesting': '⛏️ Récolte',
+                    'ReturningToBase': '🏠 Retour base',
+                    'Recharging': '🔋 Recharge',
+                    'OutOfEnergy': '❌ Hors service'
+                }[robot.status] || robot.status;
+                
+                robotEl.innerHTML = `
+                    <div class="robot-header">
+                        <span class="robot-type">${typeDisplay} #${robot.id}</span>
+                        <span style="font-size: 11px;">(${robot.position.x}, ${robot.position.y})</span>
+                    </div>
+                    <div class="robot-status">${statusDisplay}</div>
+                    <div class="energy-bar">
+                        <div class="energy-fill ${energyClass}" style="width: ${energyPercent}%"></div>
+                    </div>
+                    ${robot.cargo.length > 0 ? `<div class="robot-status">📦 Cargo: ${robot.cargo.length} items</div>` : ''}
+                `;
+                
+                listElement.appendChild(robotEl);
+            });
+        }
+        
+        function updateRobotPositions() {
+            // Supprimer les anciens robots
+            document.querySelectorAll('.robot').forEach(el => el.remove());
+            
+            if (!currentMap) return;
+            
+            const mapElement = document.getElementById('map');
+            const tileSize = 12; // 10px + 2px de bordure
+            
+            robots.forEach(robot => {
+                const robotEl = document.createElement('div');
+                robotEl.className = 'robot';
+                
+                // Style selon le type
+                const typeClass = {
+                    'Explorer': 'robot-explorer',
+                    'EnergyHarvester': 'robot-energy',
+                    'MineralHarvester': 'robot-mineral',
+                    'ScientistRobot': 'robot-scientist'
+                }[robot.robot_type];
+                
+                if (typeClass) {
+                    robotEl.classList.add(typeClass);
+                }
+                
+                // États visuels
+                if (robot.energy < 30) {
+                    robotEl.classList.add('robot-low-energy');
+                }
+                if (robot.status === 'OutOfEnergy') {
+                    robotEl.classList.add('robot-inactive');
+                }
+                
+                robotEl.style.left = `${robot.position.x * tileSize + 10}px`;
+                robotEl.style.top = `${robot.position.y * tileSize + 10}px`;
+                robotEl.title = `#${robot.id} - ${robot.robot_type}`;
+                
+                mapElement.appendChild(robotEl);
+            });
+        }
+        
+        // Charger la carte au démarrage
+        window.onload = () => loadMap();
     </script>
 </body>
 </html>
